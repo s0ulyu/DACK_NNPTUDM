@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Phần thưởng - Đổi điểm lấy quà">
+  <title>Phần thưởng | Gamification</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🎮</span>
+        <h2>Gamification</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="/rewards.html" class="nav-item active">
+          <span class="nav-icon">🎁</span> Phần thưởng
+        </a>
+        <a href="/leaderboard.html" class="nav-item">
+          <span class="nav-icon">🏆</span> Xếp hạng
+        </a>
+        <a href="/notifications.html" class="nav-item">
+          <span class="nav-icon">🔔</span> Thông báo
+          <span class="nav-badge" id="notification-badge" style="display:none">0</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <div class="user-details">
+            <div class="name" id="user-name">Loading...</div>
+            <div class="role" id="user-role">-</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">
+          <span>🚪</span> Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>🎁 Phần thưởng</h1>
+        <p>Đổi điểm lấy phần thưởng hấp dẫn • Điểm hiện tại: <strong id="my-points" style="color:#fbbf24">...</strong></p>
+      </div>
+
+      <div class="rewards-grid stagger" id="rewards-grid">
+        <div class="loading-spinner" style="grid-column:1/-1"><div class="spinner"></div></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Redeem Confirmation Modal -->
+  <div class="modal-overlay" id="redeem-modal">
+    <div class="modal">
+      <h3>🎁 Xác nhận đổi thưởng</h3>
+      <p id="redeem-modal-text">Bạn có chắc muốn đổi phần thưởng này?</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-sm" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-accent btn-sm" id="confirm-redeem-btn" onclick="confirmRedeem()">
+          Đổi thưởng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script>
+    if (!requireAuth()) { /* redirected */ }
+
+    const user = getUser();
+    initUserUI(user);
+    initSocket();
+    updateNotificationBadge();
+    loadRewards();
+
+    let selectedRewardId = null;
+    let myPoints = 0;
+
+    function initUserUI(user) {
+      if (!user) return;
+      document.getElementById('user-name').textContent = user.full_name;
+      document.getElementById('user-role').textContent = user.role_id === 1 ? 'Admin' : 'User';
+      document.getElementById('user-avatar').textContent = user.full_name.charAt(0).toUpperCase();
+    }
+
+    async function loadRewards() {
+      try {
+        // Get my points
+        const summaryRes = await getPointSummary();
+        myPoints = summaryRes.data.totalPoints ?? summaryRes.data.total_points ?? 0;
+        document.getElementById('my-points').textContent = `${myPoints.toLocaleString()} ⭐`;
+
+        // Get rewards list
+        const rewardsRes = await getRewards(1, 50);
+        renderRewards(rewardsRes.data);
+      } catch (err) {
+        showToast('Lỗi', err.message, 'error');
+      }
+    }
+
+    function renderRewards(rewards) {
+      const grid = document.getElementById('rewards-grid');
+
+      if (!rewards || rewards.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-icon">🎁</div>
+            <h3>Chưa có phần thưởng</h3>
+            <p>Admin chưa tạo phần thưởng nào</p>
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = rewards.map(reward => {
+        const canAfford = myPoints >= reward.point_cost;
+        const inStock = reward.quantity === -1 || reward.quantity > 0;
+        const stockText = reward.quantity === -1
+          ? 'Không giới hạn'
+          : reward.quantity > 0
+            ? `Còn ${reward.quantity}`
+            : 'Hết hàng';
+        const stockClass = reward.quantity === -1
+          ? ''
+          : reward.quantity > 0
+            ? (reward.quantity <= 3 ? 'low' : '')
+            : 'out';
+
+        const rewardImage = reward.image
+          ? `<img src="${reward.image}" alt="${reward.title}" class="reward-image" style="object-fit:cover;">`
+          : `<div class="reward-image">🎁</div>`;
+
+        return `
+          <div class="reward-card">
+            ${rewardImage}
+            <div class="reward-body">
+              <div class="reward-title">${escapeHtml(reward.title)}</div>
+              <div class="reward-desc">${escapeHtml(reward.description || 'Phần thưởng hấp dẫn')}</div>
+              <div class="reward-meta">
+                <span class="reward-cost">⭐ ${reward.point_cost}</span>
+                <span class="reward-stock ${stockClass}">${stockText}</span>
+              </div>
+              <button
+                class="btn ${canAfford && inStock ? 'btn-accent' : 'btn-ghost'} btn-sm"
+                style="width:100%; margin-top:14px"
+                ${!canAfford || !inStock ? 'disabled' : ''}
+                onclick="openRedeemModal(${reward.id}, '${escapeHtml(reward.title)}', ${reward.point_cost})"
+              >
+                ${!inStock ? '❌ Hết hàng' : !canAfford ? '🔒 Không đủ điểm' : '✨ Đổi thưởng'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openRedeemModal(rewardId, title, cost) {
+      selectedRewardId = rewardId;
+      document.getElementById('redeem-modal-text').innerHTML =
+        `Bạn muốn đổi <strong>${title}</strong> với <strong style="color:#fbbf24">${cost} ⭐</strong>?<br>
+         Điểm hiện tại: <strong>${myPoints}</strong> → Còn lại: <strong>${myPoints - cost}</strong>`;
+      document.getElementById('redeem-modal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('redeem-modal').classList.remove('active');
+      selectedRewardId = null;
+    }
+
+    async function confirmRedeem() {
+      if (!selectedRewardId) return;
+      const btn = document.getElementById('confirm-redeem-btn');
+      btn.disabled = true;
+      btn.textContent = 'Đang xử lý...';
+
+      try {
+        const res = await redeemReward(selectedRewardId);
+        showToast('🎉 Thành công!', res.message || 'Đổi thưởng thành công!', 'success');
+        closeModal();
+
+        // Update user points in localStorage
+        const updatedUser = getUser();
+        if (updatedUser) {
+          updatedUser.total_points = res.data?.remaining_points ?? (myPoints - (res.data?.redeemed_points || 0));
+          saveAuth(getToken(), updatedUser);
+        }
+
+        // Reload rewards
+        await loadRewards();
+      } catch (err) {
+        showToast('❌ Thất bại', err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Đổi thưởng';
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function logout() {
+      clearAuth();
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>
