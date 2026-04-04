@@ -1,0 +1,121 @@
+{
+  "meta": {
+    "schema_version": "1.1.0",
+    "awf_version": "4.0.2",
+    "last_updated": "2026-04-04T00:51:00+07:00"
+  },
+  "project": {
+    "name": "Task & Habit Gamification System",
+    "type": "web_app",
+    "status": "in_progress",
+    "repo": "https://github.com/s0ulyu/DACK_NNPTUDM",
+    "description": "Hệ thống quản lý công việc + thói quen với game hóa (điểm, level, leaderboard, reward)",
+    "team_size": 3,
+    "my_role": "Người 3 - Reward + Point + Leaderboard + Notification + Socket",
+    "my_name": "Trần Biện Minh Tâm"
+  },
+  "tech_stack": {
+    "backend": {
+      "runtime": "Node.js",
+      "framework": "Express 4.18",
+      "orm": "Sequelize 6.35",
+      "language": "JavaScript (CommonJS)"
+    },
+    "database": {
+      "type": "MySQL (MariaDB via Laragon)",
+      "host": "127.0.0.1",
+      "port": 3306,
+      "user": "root",
+      "password": "",
+      "name": "task_gamification_db",
+      "client": "mysql-8.4.3-winx64 (Laragon)",
+      "mysql_path": "C:\\laragon\\bin\\mysql\\mysql-8.4.3-winx64\\bin\\mysql.exe"
+    },
+    "realtime": "Socket.io 4.7",
+    "auth": "JWT (jsonwebtoken 9.0)",
+    "upload": "Multer 1.4",
+    "dev_tools": "Nodemon 3.0"
+  },
+  "database_schema": {
+    "summary": "10 models: User quản lý tài khoản, Task/Habit là công việc/thói quen, Reward là phần thưởng đổi điểm, PointLog ghi lịch sử điểm, Leaderboard xếp hạng, Notification thông báo",
+    "tables": [
+      {"name": "roles", "owner": "Người 1", "columns": ["id", "name"]},
+      {"name": "users", "owner": "Người 1", "columns": ["id", "full_name", "email", "password", "avatar", "role_id", "total_points", "level", "created_at", "updated_at"]},
+      {"name": "categories", "owner": "Người 2", "columns": ["id", "name", "description", "created_by", "created_at", "updated_at"]},
+      {"name": "tasks", "owner": "Người 2", "columns": ["id", "title", "description", "due_date", "status", "priority", "point_reward", "user_id", "category_id", "created_at", "updated_at"]},
+      {"name": "habits", "owner": "Người 2", "columns": ["id", "title", "description", "frequency", "target_days", "current_streak", "point_reward", "status", "user_id", "category_id", "created_at", "updated_at"]},
+      {"name": "point_logs", "owner": "Người 3 (TÔI)", "columns": ["id", "user_id", "source_type", "source_id", "points", "action", "note", "created_at"]},
+      {"name": "rewards", "owner": "Người 3 (TÔI)", "columns": ["id", "title", "description", "image", "point_cost", "quantity", "status", "created_by", "created_at", "updated_at"]},
+      {"name": "user_rewards", "owner": "Người 3 (TÔI)", "columns": ["id", "user_id", "reward_id", "redeemed_points", "status", "redeemed_at"]},
+      {"name": "leaderboards", "owner": "Người 3 (TÔI)", "columns": ["id", "user_id", "total_points", "rank_position", "level", "updated_at"]},
+      {"name": "notifications", "owner": "Người 3 (TÔI)", "columns": ["id", "user_id", "title", "content", "type", "is_read", "created_at"]}
+    ],
+    "relationships_explained": "1 Role → nhiều User, 1 User → nhiều Task/Habit/PointLog/Notification/UserReward, 1 Category → nhiều Task/Habit, 1 Reward → nhiều UserReward, 1 User → 1 Leaderboard"
+  },
+  "api_endpoints": [
+    {"method": "POST", "path": "/api/auth/register", "explained": "Đăng ký tài khoản (TẠM - chờ Người 1)", "auth": false},
+    {"method": "POST", "path": "/api/auth/login", "explained": "Đăng nhập, nhận JWT token (TẠM - chờ Người 1)", "auth": false},
+    {"method": "GET", "path": "/api/rewards", "explained": "Danh sách phần thưởng (có phân trang)", "auth": true, "role": "all"},
+    {"method": "GET", "path": "/api/rewards/:id", "explained": "Chi tiết 1 phần thưởng", "auth": true, "role": "all"},
+    {"method": "POST", "path": "/api/rewards", "explained": "Tạo phần thưởng mới + upload ảnh (admin)", "auth": true, "role": "admin"},
+    {"method": "PUT", "path": "/api/rewards/:id", "explained": "Sửa phần thưởng (admin)", "auth": true, "role": "admin"},
+    {"method": "DELETE", "path": "/api/rewards/:id", "explained": "Xóa mềm phần thưởng (admin)", "auth": true, "role": "admin"},
+    {"method": "POST", "path": "/api/rewards/:id/redeem", "explained": "Đổi thưởng bằng điểm - TRANSACTION quan trọng", "auth": true, "role": "user"},
+    {"method": "GET", "path": "/api/points/history", "explained": "Lịch sử cộng/trừ điểm của mình", "auth": true},
+    {"method": "GET", "path": "/api/points/history/:userId", "explained": "Lịch sử điểm user khác (admin)", "auth": true, "role": "admin"},
+    {"method": "GET", "path": "/api/points/summary", "explained": "Tổng điểm + level + rank hiện tại", "auth": true},
+    {"method": "GET", "path": "/api/leaderboard", "explained": "Top 10 xếp hạng", "auth": true},
+    {"method": "GET", "path": "/api/leaderboard/me", "explained": "Vị trí xếp hạng của mình", "auth": true},
+    {"method": "GET", "path": "/api/notifications", "explained": "Danh sách thông báo (phân trang)", "auth": true},
+    {"method": "GET", "path": "/api/notifications/unread-count", "explained": "Số thông báo chưa đọc", "auth": true},
+    {"method": "PUT", "path": "/api/notifications/:id/read", "explained": "Đánh dấu 1 thông báo đã đọc", "auth": true},
+    {"method": "PUT", "path": "/api/notifications/read-all", "explained": "Đánh dấu tất cả đã đọc", "auth": true}
+  ],
+  "business_rules": [
+    "Hoàn thành task → cộng điểm (task.point_reward) → cập nhật leaderboard",
+    "Đổi thưởng = trừ điểm + tạo user_reward + cập nhật leaderboard (TRANSACTION)",
+    "Nếu không đủ điểm hoặc reward hết hàng → ROLLBACK toàn bộ",
+    "quantity = -1 nghĩa là reward vô hạn",
+    "Level system: 0-99=Beginner, 100-299=Learner, 300-599=Achiever, 600-999=Expert, 1000+=Master",
+    "Socket emit cho user cá nhân qua room user_{userId}, broadcast qua room global",
+    "Admin role_id=1, User role_id=2"
+  ],
+  "socket_events": [
+    {"event": "notification:new", "target": "user cụ thể", "trigger": "task completed / reward redeemed"},
+    {"event": "leaderboard:update", "target": "tất cả user", "trigger": "khi có thay đổi điểm"},
+    {"event": "reward:new", "target": "tất cả user", "trigger": "admin tạo reward mới"},
+    {"event": "level:up", "target": "user cụ thể", "trigger": "user lên level"}
+  ],
+  "features": [
+    {"name": "Reward CRUD", "status": "implemented", "owner": "Người 3"},
+    {"name": "Redeem Transaction", "status": "implemented", "owner": "Người 3"},
+    {"name": "Point History", "status": "implemented", "owner": "Người 3"},
+    {"name": "Leaderboard", "status": "implemented", "owner": "Người 3"},
+    {"name": "Notification", "status": "implemented", "owner": "Người 3"},
+    {"name": "Socket.io Realtime", "status": "implemented", "owner": "Người 3"},
+    {"name": "Upload Reward Image", "status": "implemented", "owner": "Người 3"},
+    {"name": "Auth Register/Login", "status": "stub", "owner": "Người 1"},
+    {"name": "Task CRUD", "status": "stub", "owner": "Người 2"},
+    {"name": "Habit CRUD", "status": "stub", "owner": "Người 2"}
+  ],
+  "knowledge_items": {
+    "patterns": [
+      "Sequelize Managed Transaction: sequelize.transaction(async (t) => { ... }) - tự rollback khi throw error",
+      "Socket emit NGOÀI transaction (sau commit) để đảm bảo data consistency",
+      "global.io để services truy cập socket instance",
+      "Repository pattern: repo chỉ query DB, service xử lý logic, controller format response"
+    ],
+    "gotchas": [
+      "PowerShell dùng ; thay && để chain commands",
+      "Laragon MySQL path: C:\\laragon\\bin\\mysql\\mysql-8.4.3-winx64\\bin\\mysql.exe",
+      "Sequelize lock for update cần pass transaction: Reward.findByPk(id, { lock: t.LOCK.UPDATE, transaction: t })",
+      "MySQL ROW_NUMBER() dùng cho recalculate ranks"
+    ],
+    "conventions": [
+      "Response format: { success, message, data }",
+      "Paginated format: { success, message, data, pagination: { page, limit, total, totalPages } }",
+      "File naming: camelCase cho JS, snake_case cho DB columns",
+      "Error throw: { statusCode, message }"
+    ]
+  }
+}
