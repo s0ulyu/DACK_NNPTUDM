@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Thông báo - Cập nhật mới nhất">
+  <title>Thông báo | Gamification</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🎮</span>
+        <h2>Gamification</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="/rewards.html" class="nav-item">
+          <span class="nav-icon">🎁</span> Phần thưởng
+        </a>
+        <a href="/leaderboard.html" class="nav-item">
+          <span class="nav-icon">🏆</span> Xếp hạng
+        </a>
+        <a href="/notifications.html" class="nav-item active">
+          <span class="nav-icon">🔔</span> Thông báo
+          <span class="nav-badge" id="notification-badge" style="display:none">0</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <div class="user-details">
+            <div class="name" id="user-name">Loading...</div>
+            <div class="role" id="user-role">-</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">
+          <span>🚪</span> Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-header" style="display:flex; align-items:flex-start; justify-content:space-between">
+        <div>
+          <h1>🔔 Thông báo</h1>
+          <p>Cập nhật hoạt động của bạn</p>
+        </div>
+        <div class="notification-actions">
+          <button class="btn btn-ghost btn-sm" onclick="handleMarkAllRead()">
+            ✓ Đánh dấu tất cả đã đọc
+          </button>
+        </div>
+      </div>
+
+      <div class="notification-list stagger" id="notification-list">
+        <div class="loading-spinner"><div class="spinner"></div></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script>
+    if (!requireAuth()) { /* redirected */ }
+
+    const user = getUser();
+    initUserUI(user);
+    initSocket();
+    updateNotificationBadge();
+    loadNotifications();
+
+    function initUserUI(user) {
+      if (!user) return;
+      document.getElementById('user-name').textContent = user.full_name;
+      document.getElementById('user-role').textContent = user.role_id === 1 ? 'Admin' : 'User';
+      document.getElementById('user-avatar').textContent = user.full_name.charAt(0).toUpperCase();
+    }
+
+    async function loadNotifications() {
+      try {
+        const res = await getNotifications(1, 50);
+        renderNotifications(res.data);
+      } catch (err) {
+        showToast('Lỗi', err.message, 'error');
+      }
+    }
+
+    function renderNotifications(notifications) {
+      const list = document.getElementById('notification-list');
+
+      if (!notifications || notifications.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🔔</div>
+            <h3>Chưa có thông báo</h3>
+            <p>Thông báo sẽ hiển thị khi có hoạt động mới</p>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = notifications.map(n => {
+        const typeIcons = {
+          reward: { icon: '🎁', class: 'reward' },
+          point: { icon: '⭐', class: 'point' },
+          level: { icon: '🎉', class: 'level' },
+          system: { icon: 'ℹ️', class: '' }
+        };
+        const typeInfo = typeIcons[n.type] || typeIcons.system;
+        const timeAgo = formatTimeAgo(n.created_at);
+
+        return `
+          <div class="notification-item ${n.is_read ? '' : 'unread'}"
+               onclick="handleRead(${n.id}, this)"
+               id="notif-${n.id}">
+            <div class="notification-icon ${typeInfo.class}">${typeInfo.icon}</div>
+            <div class="notification-body">
+              <div class="notification-title">${escapeHtml(n.title)}</div>
+              <div class="notification-content">${escapeHtml(n.content)}</div>
+              <div class="notification-time">${timeAgo}</div>
+            </div>
+            ${!n.is_read ? '<span style="width:8px;height:8px;border-radius:50%;background:#667eea;flex-shrink:0;margin-top:6px"></span>' : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function handleRead(id, el) {
+      if (!el.classList.contains('unread')) return;
+      try {
+        await markAsRead(id);
+        el.classList.remove('unread');
+        // Remove blue dot
+        const dot = el.querySelector('span[style*="border-radius:50%"]');
+        if (dot) dot.remove();
+        updateNotificationBadge();
+      } catch (e) {
+        // Silent
+      }
+    }
+
+    async function handleMarkAllRead() {
+      try {
+        await markAllAsRead();
+        document.querySelectorAll('.notification-item.unread').forEach(el => {
+          el.classList.remove('unread');
+          const dot = el.querySelector('span[style*="border-radius:50%"]');
+          if (dot) dot.remove();
+        });
+        updateNotificationBadge();
+        showToast('✅ Đã xong', 'Tất cả thông báo đã được đánh dấu đã đọc', 'success');
+      } catch (err) {
+        showToast('Lỗi', err.message, 'error');
+      }
+    }
+
+    function formatTimeAgo(dateStr) {
+      if (!dateStr) return '';
+      const now = new Date();
+      const d = new Date(dateStr);
+      const diff = Math.floor((now - d) / 1000);
+
+      if (diff < 60) return 'Vừa xong';
+      if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+      if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`;
+      return d.toLocaleDateString('vi-VN');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function logout() {
+      clearAuth();
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>
