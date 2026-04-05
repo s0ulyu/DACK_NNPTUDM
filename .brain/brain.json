@@ -2,16 +2,17 @@
   "meta": {
     "schema_version": "1.1.0",
     "awf_version": "4.0.2",
-    "last_updated": "2026-04-04T00:51:00+07:00"
+    "last_updated": "2026-04-04T19:35:00+07:00"
   },
   "project": {
     "name": "Task & Habit Gamification System",
     "type": "web_app",
     "status": "in_progress",
     "repo": "https://github.com/s0ulyu/DACK_NNPTUDM",
+    "branch": "develop",
     "description": "Hệ thống quản lý công việc + thói quen với game hóa (điểm, level, leaderboard, reward)",
     "team_size": 3,
-    "my_role": "Người 3 - Reward + Point + Leaderboard + Notification + Socket",
+    "my_role": "Trần Biện Minh Tâm - Reward + Point + Leaderboard + Notification + Socket + Frontend",
     "my_name": "Trần Biện Minh Tâm"
   },
   "tech_stack": {
@@ -20,6 +21,13 @@
       "framework": "Express 4.18",
       "orm": "Sequelize 6.35",
       "language": "JavaScript (CommonJS)"
+    },
+    "frontend": {
+      "type": "Vanilla HTML/CSS/JS",
+      "styling": "Dark glassmorphism theme, Inter font (Google Fonts)",
+      "realtime": "Socket.io client",
+      "served_from": "Express static (cùng server backend)",
+      "pages": ["Login", "Dashboard", "Rewards", "Leaderboard", "Notifications"]
     },
     "database": {
       "type": "MySQL (MariaDB via Laragon)",
@@ -44,11 +52,11 @@
       {"name": "categories", "owner": "Người 2", "columns": ["id", "name", "description", "created_by", "created_at", "updated_at"]},
       {"name": "tasks", "owner": "Người 2", "columns": ["id", "title", "description", "due_date", "status", "priority", "point_reward", "user_id", "category_id", "created_at", "updated_at"]},
       {"name": "habits", "owner": "Người 2", "columns": ["id", "title", "description", "frequency", "target_days", "current_streak", "point_reward", "status", "user_id", "category_id", "created_at", "updated_at"]},
-      {"name": "point_logs", "owner": "Người 3 (TÔI)", "columns": ["id", "user_id", "source_type", "source_id", "points", "action", "note", "created_at"]},
-      {"name": "rewards", "owner": "Người 3 (TÔI)", "columns": ["id", "title", "description", "image", "point_cost", "quantity", "status", "created_by", "created_at", "updated_at"]},
-      {"name": "user_rewards", "owner": "Người 3 (TÔI)", "columns": ["id", "user_id", "reward_id", "redeemed_points", "status", "redeemed_at"]},
-      {"name": "leaderboards", "owner": "Người 3 (TÔI)", "columns": ["id", "user_id", "total_points", "rank_position", "level", "updated_at"]},
-      {"name": "notifications", "owner": "Người 3 (TÔI)", "columns": ["id", "user_id", "title", "content", "type", "is_read", "created_at"]}
+      {"name": "point_logs", "owner": "Trần Biện Minh Tâm", "columns": ["id", "user_id", "source_type", "source_id", "points", "action", "note", "created_at"]},
+      {"name": "rewards", "owner": "Trần Biện Minh Tâm", "columns": ["id", "title", "description", "image", "point_cost", "quantity", "status", "created_by", "created_at", "updated_at"]},
+      {"name": "user_rewards", "owner": "Trần Biện Minh Tâm", "columns": ["id", "user_id", "reward_id", "redeemed_points", "status", "redeemed_at"]},
+      {"name": "leaderboards", "owner": "Trần Biện Minh Tâm", "columns": ["id", "user_id", "total_points", "rank_position", "level", "updated_at"]},
+      {"name": "notifications", "owner": "Trần Biện Minh Tâm", "columns": ["id", "user_id", "title", "content", "type", "is_read", "created_at"]}
     ],
     "relationships_explained": "1 Role → nhiều User, 1 User → nhiều Task/Habit/PointLog/Notification/UserReward, 1 Category → nhiều Task/Habit, 1 Reward → nhiều UserReward, 1 User → 1 Leaderboard"
   },
@@ -71,6 +79,13 @@
     {"method": "PUT", "path": "/api/notifications/:id/read", "explained": "Đánh dấu 1 thông báo đã đọc", "auth": true},
     {"method": "PUT", "path": "/api/notifications/read-all", "explained": "Đánh dấu tất cả đã đọc", "auth": true}
   ],
+  "frontend_pages": [
+    {"path": "/", "file": "frontend/index.html", "explained": "Trang đăng nhập với glassmorphism card"},
+    {"path": "/dashboard.html", "file": "frontend/dashboard.html", "explained": "Dashboard: tổng điểm, level, rank, lịch sử điểm gần đây"},
+    {"path": "/rewards.html", "file": "frontend/rewards.html", "explained": "Danh sách phần thưởng dạng card, nút đổi thưởng với modal xác nhận"},
+    {"path": "/leaderboard.html", "file": "frontend/leaderboard.html", "explained": "Bảng xếp hạng Top 10 với medal vàng/bạc/đồng, highlight user hiện tại"},
+    {"path": "/notifications.html", "file": "frontend/notifications.html", "explained": "Danh sách thông báo, click để đánh dấu đã đọc, nút mark all"}
+  ],
   "business_rules": [
     "Hoàn thành task → cộng điểm (task.point_reward) → cập nhật leaderboard",
     "Đổi thưởng = trừ điểm + tạo user_reward + cập nhật leaderboard (TRANSACTION)",
@@ -87,13 +102,14 @@
     {"event": "level:up", "target": "user cụ thể", "trigger": "user lên level"}
   ],
   "features": [
-    {"name": "Reward CRUD", "status": "implemented", "owner": "Người 3"},
-    {"name": "Redeem Transaction", "status": "implemented", "owner": "Người 3"},
-    {"name": "Point History", "status": "implemented", "owner": "Người 3"},
-    {"name": "Leaderboard", "status": "implemented", "owner": "Người 3"},
-    {"name": "Notification", "status": "implemented", "owner": "Người 3"},
-    {"name": "Socket.io Realtime", "status": "implemented", "owner": "Người 3"},
-    {"name": "Upload Reward Image", "status": "implemented", "owner": "Người 3"},
+    {"name": "Reward CRUD", "status": "done", "owner": "Trần Biện Minh Tâm"},
+    {"name": "Redeem Transaction", "status": "done", "owner": "Trần Biện Minh Tâm"},
+    {"name": "Point History", "status": "done", "owner": "Trần Biện Minh Tâm"},
+    {"name": "Leaderboard", "status": "done", "owner": "Trần Biện Minh Tâm"},
+    {"name": "Notification", "status": "done", "owner": "Trần Biện Minh Tâm"},
+    {"name": "Socket.io Realtime", "status": "done", "owner": "Trần Biện Minh Tâm"},
+    {"name": "Upload Reward Image", "status": "done", "owner": "Trần Biện Minh Tâm"},
+    {"name": "Frontend 5 Pages", "status": "done", "owner": "Trần Biện Minh Tâm"},
     {"name": "Auth Register/Login", "status": "stub", "owner": "Người 1"},
     {"name": "Task CRUD", "status": "stub", "owner": "Người 2"},
     {"name": "Habit CRUD", "status": "stub", "owner": "Người 2"}
@@ -103,19 +119,24 @@
       "Sequelize Managed Transaction: sequelize.transaction(async (t) => { ... }) - tự rollback khi throw error",
       "Socket emit NGOÀI transaction (sau commit) để đảm bảo data consistency",
       "global.io để services truy cập socket instance",
-      "Repository pattern: repo chỉ query DB, service xử lý logic, controller format response"
+      "Repository pattern: repo chỉ query DB, service xử lý logic, controller format response",
+      "Frontend dùng vanilla JS, fetch API + JWT token từ localStorage",
+      "Express serve frontend static files: app.use(express.static(path.join(__dirname, '..', 'frontend')))"
     ],
     "gotchas": [
       "PowerShell dùng ; thay && để chain commands",
       "Laragon MySQL path: C:\\laragon\\bin\\mysql\\mysql-8.4.3-winx64\\bin\\mysql.exe",
       "Sequelize lock for update cần pass transaction: Reward.findByPk(id, { lock: t.LOCK.UPDATE, transaction: t })",
-      "MySQL ROW_NUMBER() dùng cho recalculate ranks"
+      "MySQL ROW_NUMBER() dùng cho recalculate ranks",
+      "Sequelize findAndCountAll: limit/offset PHẢI là integer, dùng parseInt() — nếu truyền string sẽ gây SQL syntax error",
+      "Backend services trả camelCase (totalPoints, fullName) — frontend cần handle cả camelCase và snake_case"
     ],
     "conventions": [
       "Response format: { success, message, data }",
       "Paginated format: { success, message, data, pagination: { page, limit, total, totalPages } }",
       "File naming: camelCase cho JS, snake_case cho DB columns",
-      "Error throw: { statusCode, message }"
+      "Error throw: { statusCode, message }",
+      "Git commit format: feat(Tran Bien Minh Tam): [description]"
     ]
   }
 }
