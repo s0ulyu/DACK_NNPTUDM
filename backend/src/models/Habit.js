@@ -1,6 +1,7 @@
 // ==========================================
-// MODEL: Habit (Người 2 phụ trách)
-// STUB - Người 2 sẽ hoàn thiện sau
+// MODEL: Habit 
+// Quản lý Thói quen (Habit) - Mỹ Tâm
+// Ý nghĩa: Định nghĩa bảng "habits" lưu trữ thói quen lặp lại của người dùng
 // ==========================================
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
@@ -12,7 +13,7 @@ const Habit = sequelize.define('Habit', {
     autoIncrement: true
   },
   title: {
-    type: DataTypes.STRING(200),
+    type: DataTypes.STRING(255),
     allowNull: false
   },
   description: {
@@ -23,21 +24,17 @@ const Habit = sequelize.define('Habit', {
     type: DataTypes.ENUM('daily', 'weekly'),
     defaultValue: 'daily'
   },
-  target_days: {
-    type: DataTypes.INTEGER,
-    defaultValue: 30
-  },
-  current_streak: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0
-  },
   point_reward: {
     type: DataTypes.INTEGER,
-    defaultValue: 5
+    defaultValue: 5 // Thói quen thường ít điểm hơn Task nhưng được nhận mỗi ngày
   },
   status: {
-    type: DataTypes.ENUM('active', 'paused', 'completed'),
+    type: DataTypes.ENUM('active', 'inactive'),
     defaultValue: 'active'
+  },
+  last_checkin: {
+    type: DataTypes.DATE,
+    allowNull: true // Lưu lại thời gian lần cuối hoàn thành để tránh spam điểm
   },
   user_id: {
     type: DataTypes.INTEGER,

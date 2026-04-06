@@ -1,6 +1,6 @@
 // ==========================================
 // MODEL: Category (Người 2 phụ trách)
-// STUB - Người 2 sẽ hoàn thiện sau
+// Quản lý Danh mục (Category) - Mỹ Tâm
 // ==========================================
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');

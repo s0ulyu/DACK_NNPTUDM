@@ -1,6 +1,7 @@
 // ==========================================
-// MODEL: Task (Người 2 phụ trách)
-// STUB - Người 2 sẽ hoàn thiện sau
+// MODEL: Task 
+// Quản lý Công việc (Task) - Mỹ Tâm
+// Ý nghĩa: Định nghĩa cấu trúc bảng "tasks" lưu trữ công việc của người dùng
 // ==========================================
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
@@ -12,7 +13,7 @@ const Task = sequelize.define('Task', {
     autoIncrement: true
   },
   title: {
-    type: DataTypes.STRING(200),
+    type: DataTypes.STRING(255),
     allowNull: false
   },
   description: {
@@ -33,7 +34,7 @@ const Task = sequelize.define('Task', {
   },
   point_reward: {
     type: DataTypes.INTEGER,
-    defaultValue: 10
+    defaultValue: 10 // Hoàn thành mặc định được 10 điểm
   },
   user_id: {
     type: DataTypes.INTEGER,

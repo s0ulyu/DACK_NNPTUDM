@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Quản lý Thói quen - Task Gamification">
+  <title>Thói quen | Gamification</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🎮</span>
+        <h2>Gamification</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="/categories.html" class="nav-item">
+          <span class="nav-icon">📁</span> Danh mục
+        </a>
+        <a href="/tasks.html" class="nav-item">
+          <span class="nav-icon">✅</span> Công việc
+        </a>
+        <a href="/habits.html" class="nav-item active">
+          <span class="nav-icon">🔄</span> Thói quen
+        </a>
+        <a href="/rewards.html" class="nav-item">
+          <span class="nav-icon">🎁</span> Phần thưởng
+        </a>
+        <a href="/leaderboard.html" class="nav-item">
+          <span class="nav-icon">🏆</span> Xếp hạng
+        </a>
+        <a href="/notifications.html" class="nav-item">
+          <span class="nav-icon">🔔</span> Thông báo
+          <span class="nav-badge" id="notification-badge" style="display:none">0</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <div class="user-details">
+            <div class="name" id="user-name">Loading...</div>
+            <div class="role" id="user-role">-</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">
+          <span>🚪</span> Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>🔄 Quản lý Thói quen</h1>
+        <p>Thực hiện mỗi ngày để tích lũy điểm thưởng (Chức năng: Mỹ Tâm)</p>
+      </div>
+
+      <!-- Form Thêm / Cập nhật Habit -->
+      <div class="card slide-up" style="margin-bottom: 24px;">
+        <h2 id="form-title" style="margin-bottom: 15px; font-size: 1.2rem;">Tạo Thói quen mới</h2>
+        <form id="habitForm">
+          <input type="hidden" id="habitId">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div class="form-group">
+              <label for="title" style="display:block; margin-bottom:5px; font-weight:600;">Tên thói quen (*)</label>
+              <input type="text" id="title" placeholder="VD: Uống 2 lít nước..." required style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+            </div>
+            <div class="form-group">
+              <label for="category_id" style="display:block; margin-bottom:5px; font-weight:600;">Danh mục</label>
+              <select id="category_id" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+                <option value="">-- Chọn danh mục --</option>
+              </select>
+            </div>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div class="form-group">
+              <label for="point_reward" style="display:block; margin-bottom:5px; font-weight:600;">Điểm nhận mỗi lần (⭐)</label>
+              <input type="number" id="point_reward" value="5" min="1" required style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+            </div>
+            <div class="form-group">
+              <label for="frequency" style="display:block; margin-bottom:5px; font-weight:600;">Tần suất lặp lại</label>
+              <select id="frequency" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+                <option value="daily" selected>Mỗi ngày (Daily)</option>
+                <option value="weekly">Mỗi tuần (Weekly)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 15px;">
+            <label for="description" style="display:block; margin-bottom:5px; font-weight:600;">Mô tả chi tiết</label>
+            <textarea id="description" rows="2" placeholder="Ghi chú thêm về thói quen này..." style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-color); color:var(--text-color);"></textarea>
+          </div>
+          
+          <button type="submit" class="btn btn-primary" id="submitBtn">Lưu Thói Quen</button>
+          <button type="button" class="btn btn-ghost" id="cancelBtn" style="display:none; margin-left: 10px;" onclick="resetForm()">Hủy</button>
+        </form>
+      </div>
+
+      <!-- Bảng hiển thị danh sách -->
+      <div class="card slide-up" style="animation-delay: 0.1s;">
+        <h2 style="margin-bottom: 15px; font-size: 1.2rem;">Danh sách thói quen của bạn</h2>
+        <div style="overflow-x: auto;">
+          <table class="leaderboard-table" style="width: 100%;">
+            <thead>
+              <tr>
+                <th style="text-align:left; padding:12px;">Tên thói quen</th>
+                <th style="text-align:center; padding:12px;">Tần suất</th>
+                <th style="text-align:center; padding:12px;">Điểm</th>
+                <th style="text-align:center; padding:12px;">Lần cuối Check-in</th>
+                <th style="text-align:right; padding:12px;">Hành động</th>
+              </tr>
+            </thead>
+            <tbody id="habitTableBody">
+              <tr><td colspan="5"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script>
+    if (!requireAuth()) { /* redirected */ }
+
+    const user = getUser();
+    initUserUI(user);
+    initSocket();
+    updateNotificationBadge();
+
+    function initUserUI(user) {
+      if (!user) return;
+      document.getElementById('user-name').textContent = user.full_name;
+      document.getElementById('user-role').textContent = user.role_id === 1 ? 'Admin' : 'User';
+      document.getElementById('user-avatar').textContent = user.full_name.charAt(0).toUpperCase();
+    }
+
+    const API_URL = '/api/habits';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchCategories();
+      fetchHabits();
+    });
+
+    async function fetchCategories() {
+      try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+        const select = document.getElementById('category_id');
+        if (data.success && data.data) {
+          data.data.forEach(cat => {
+            select.innerHTML += `<option value="${cat.id}">${escapeHtml(cat.name)}</option>`;
+          });
+        }
+      } catch (err) { console.error('Lỗi tải danh mục'); }
+    }
+
+    async function fetchHabits() {
+      try {
+        const response = await fetch(API_URL);
+        const result = await response.json();
+        const tbody = document.getElementById('habitTableBody');
+        tbody.innerHTML = '';
+        
+        if(result.success && result.data.length > 0) {
+          result.data.forEach(habit => {
+            // Kiểm tra xem hôm nay đã check-in chưa
+            let isCheckedInToday = false;
+            if (habit.last_checkin) {
+              const lastDate = new Date(habit.last_checkin).toDateString();
+              const today = new Date().toDateString();
+              if (lastDate === today) isCheckedInToday = true;
+            }
+
+            const freqBadge = habit.frequency === 'daily' 
+              ? `<span style="background:#3b82f6; color:white; padding:4px 8px; border-radius:12px; font-size:0.8rem;">Mỗi ngày</span>`
+              : `<span style="background:#8b5cf6; color:white; padding:4px 8px; border-radius:12px; font-size:0.8rem;">Mỗi tuần</span>`;
+            
+            const lastCheckinStr = habit.last_checkin ? new Date(habit.last_checkin).toLocaleDateString('vi-VN') : 'Chưa từng';
+
+            tbody.innerHTML += `
+              <tr style="${isCheckedInToday ? 'background-color: var(--bg-hover);' : ''}">
+                <td style="padding:12px;"><strong>${escapeHtml(habit.title)}</strong></td>
+                <td style="padding:12px; text-align:center;">${freqBadge}</td>
+                <td style="padding:12px; text-align:center; color:#fbbf24; font-weight:bold;">+${habit.point_reward} ⭐</td>
+                <td style="padding:12px; text-align:center; font-size: 0.9em; color: var(--text-muted);">${lastCheckinStr}</td>
+                <td style="padding:12px; text-align:right;">
+                  ${!isCheckedInToday 
+                    ? `<button class="btn btn-primary btn-sm" onclick="checkinHabit(${habit.id})">🔄 Check-in</button>` 
+                    : `<button class="btn btn-ghost btn-sm" disabled style="opacity:0.5;">✅ Đã Check-in</button>`}
+                  <button class="btn btn-ghost btn-sm" style="color:#ef4444;" onclick="deleteHabit(${habit.id})">Xóa</button>
+                </td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><h3>Chưa có thói quen nào</h3><p>Hãy tạo một thói quen tốt để làm mỗi ngày!</p></div></td></tr>';
+        }
+      } catch (error) {
+        showToast('Lỗi', 'Không thể tải dữ liệu Habit', 'error');
+      }
+    }
+
+    async function checkinHabit(id) {
+      try {
+        const response = await fetch(`${API_URL}/${id}/checkin`, { method: 'POST' });
+        const result = await response.json();
+        if (result.success) {
+          showToast('🌟 Tuyệt vời!', result.message, 'success');
+          fetchHabits(); // Tải lại bảng để làm mờ nút Check-in
+        } else {
+          showToast('Lỗi', result.message, 'error');
+        }
+      } catch (error) {
+        showToast('Lỗi', 'Không kết nối được tới máy chủ', 'error');
+      }
+    }
+
+    document.getElementById('habitForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const data = {
+        title: document.getElementById('title').value,
+        description: document.getElementById('description').value,
+        point_reward: document.getElementById('point_reward').value,
+        frequency: document.getElementById('frequency').value,
+        category_id: document.getElementById('category_id').value || null
+      };
+      await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      document.getElementById('habitForm').reset();
+      fetchHabits();
+      showToast('Thành công', 'Tạo thói quen thành công!', 'success');
+    });
+
+    async function deleteHabit(id) {
+      if (!confirm('Xóa thói quen này?')) return;
+      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      fetchHabits();
+    }
+    function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str || ''; return div.innerHTML; }
+    function logout() { clearAuth(); window.location.href = '/'; }
+  </script>
+</body>
+</html>

@@ -49,6 +49,17 @@ const PORT = process.env.PORT || 3000;
 
 async function startServer() {
   try {
+    // Tự động tạo database nếu chưa có (Hỗ trợ chạy ngay với Laragon)
+    const mysql = require('mysql2/promise');
+    const connection = await mysql.createConnection({
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 3306,
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '',
+    });
+    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME || 'task_gamification'}\`;`);
+    await connection.end();
+
     // Test database connection
     await sequelize.authenticate();
     console.log('✅ Database connected successfully');
@@ -66,6 +77,14 @@ async function startServer() {
         { name: 'user' }
       ]);
       console.log('✅ Default roles created');
+    }
+
+    // Seed 1 User ảo để Người 2 test Task không bị lỗi khóa ngoại
+    try {
+      await sequelize.query(`INSERT IGNORE INTO users (id, full_name, email, password, role_id, total_points, level, created_at, updated_at) VALUES (1, 'Mỹ Tâm Test', 'mytam@test.com', '123456', 1, 0, 1, NOW(), NOW())`);
+      console.log('✅ Default User (ID: 1) created for testing');
+    } catch (e) {
+      // Bỏ qua nếu cấu trúc bảng User của Người 1 có thay đổi
     }
 
     // Start listening
