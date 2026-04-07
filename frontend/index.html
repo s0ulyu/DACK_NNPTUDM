@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Đăng nhập - Task & Habit Gamification System">
+  <title>Đăng nhập | Gamification</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body class="login-page">
+
+  <div class="login-container slide-up">
+    <div class="login-logo">
+      <span class="logo-icon">🎮</span>
+      <h1>Gamification</h1>
+      <p>Task & Habit Gamification System</p>
+    </div>
+
+    <!-- Tab Toggle -->
+    <div class="auth-tabs">
+      <button id="login-tab" class="auth-tab active">Đăng nhập</button>
+      <button id="register-tab" class="auth-tab">Đăng ký</button>
+    </div>
+
+    <div id="auth-error" class="login-error"></div>
+
+    <!-- Login Form -->
+    <form id="login-form" class="auth-form active">
+      <div class="form-group">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" placeholder="name@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="login-password">Mật khẩu</label>
+        <input type="password" id="login-password" placeholder="••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary" id="login-btn">
+        <span id="login-text">Đăng nhập</span>
+      </button>
+    </form>
+
+    <!-- Register Form -->
+    <form id="register-form" class="auth-form">
+      <div class="form-group">
+        <label for="register-fullname">Họ tên</label>
+        <input type="text" id="register-fullname" placeholder="Nguyễn Văn A" required autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label for="register-email">Email</label>
+        <input type="email" id="register-email" placeholder="name@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="register-password">Mật khẩu</label>
+        <input type="password" id="register-password" placeholder="••••••" required autocomplete="new-password" minlength="6">
+      </div>
+      <div class="form-group">
+        <label for="register-confirm-password">Xác nhận mật khẩu</label>
+        <input type="password" id="register-confirm-password" placeholder="••••••" required autocomplete="new-password" minlength="6">
+      </div>
+      <button type="submit" class="btn btn-primary" id="register-btn">
+        <span id="register-text">Đăng ký</span>
+      </button>
+    </form>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    // Redirect if already logged in
+    if (isLoggedIn()) {
+      window.location.href = '/dashboard.html';
+    }
+
+    // Tab switching
+    const loginTab = document.getElementById('login-tab');
+    const registerTab = document.getElementById('register-tab');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const errorEl = document.getElementById('auth-error');
+
+    function switchTab(activeTab, activeForm) {
+      // Reset tabs
+      loginTab.classList.remove('active');
+      registerTab.classList.remove('active');
+      loginForm.classList.remove('active');
+      registerForm.classList.remove('active');
+
+      // Set active
+      activeTab.classList.add('active');
+      activeForm.classList.add('active');
+      errorEl.classList.remove('visible');
+    }
+
+    loginTab.addEventListener('click', () => switchTab(loginTab, loginForm));
+    registerTab.addEventListener('click', () => switchTab(registerTab, registerForm));
+
+    // Login form
+    const loginFormEl = document.getElementById('login-form');
+    const loginBtn = document.getElementById('login-btn');
+    const loginText = document.getElementById('login-text');
+
+    loginFormEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.classList.remove('visible');
+
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+
+      if (!email || !password) {
+        showError('Vui lòng nhập email và mật khẩu');
+        return;
+      }
+
+      loginBtn.disabled = true;
+      loginText.textContent = 'Đang đăng nhập...';
+
+      try {
+        const res = await loginAPI(email, password);
+        saveAuth(res.data.token, res.data.user);
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        showError(err.message);
+        loginBtn.disabled = false;
+        loginText.textContent = 'Đăng nhập';
+      }
+    });
+
+    // Register form
+    const registerFormEl = document.getElementById('register-form');
+    const registerBtn = document.getElementById('register-btn');
+    const registerText = document.getElementById('register-text');
+
+    registerFormEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.classList.remove('visible');
+
+      const fullName = document.getElementById('register-fullname').value.trim();
+      const email = document.getElementById('register-email').value.trim();
+      const password = document.getElementById('register-password').value;
+      const confirmPassword = document.getElementById('register-confirm-password').value;
+
+      if (!fullName || !email || !password || !confirmPassword) {
+        showError('Vui lòng nhập đầy đủ thông tin');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        showError('Mật khẩu xác nhận không khớp');
+        return;
+      }
+
+      if (password.length < 6) {
+        showError('Mật khẩu phải có ít nhất 6 ký tự');
+        return;
+      }
+
+      registerBtn.disabled = true;
+      registerText.textContent = 'Đang đăng ký...';
+
+      try {
+        const res = await registerAPI(fullName, email, password);
+        saveAuth(res.data.token, res.data.user);
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        showError(err.message);
+        registerBtn.disabled = false;
+        registerText.textContent = 'Đăng ký';
+      }
+    });
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.add('visible');
+    }
+  </script>
+</body>
+</html>

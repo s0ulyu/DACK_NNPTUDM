@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Admin Users Management - Quản lý người dùng">
+  <title>Quản lý Users | Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🎮</span>
+        <h2>Gamification</h2>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="/rewards.html" class="nav-item">
+          <span class="nav-icon">🎁</span> Phần thưởng
+        </a>
+        <a href="/leaderboard.html" class="nav-item">
+          <span class="nav-icon">🏆</span> Xếp hạng
+        </a>
+        <a href="/notifications.html" class="nav-item">
+          <span class="nav-icon">🔔</span> Thông báo
+          <span class="nav-badge" id="notification-badge" style="display:none">0</span>
+        </a>
+        <a href="/profile.html" class="nav-item">
+          <span class="nav-icon">👤</span> Profile
+        </a>
+
+        <!-- Admin Menu Items -->
+        <div class="admin-menu">
+          <div class="admin-menu-header">
+            <span class="admin-icon">⚡</span> Admin Panel
+          </div>
+          <a href="/admin-dashboard.html" class="nav-item admin-item">
+            <span class="nav-icon">📈</span> Admin Dashboard
+          </a>
+          <a href="/admin-rewards.html" class="nav-item admin-item">
+            <span class="nav-icon">🎁</span> Quản lý Rewards
+          </a>
+          <a href="/admin-users.html" class="nav-item admin-item active">
+            <span class="nav-icon">👥</span> Quản lý Users
+          </a>
+          <a href="/admin-categories.html" class="nav-item admin-item">
+            <span class="nav-icon">📂</span> Quản lý Categories
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="sidebar-avatar">?</div>
+          <div class="user-details">
+            <div class="name" id="sidebar-name">Loading...</div>
+            <div class="role" id="sidebar-role">-</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">
+          <span>🚪</span> Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Quản lý Users</h1>
+        <p>Xem và quản lý tất cả người dùng hệ thống</p>
+      </header>
+
+      <!-- Action Bar -->
+      <div class="action-bar">
+        <div class="filters">
+          <input type="text" id="search-input" placeholder="Tìm kiếm user..." class="search-input">
+          <select id="role-filter" class="filter-select">
+            <option value="">Tất cả vai trò</option>
+            <option value="admin">Admin</option>
+            <option value="user">User</option>
+          </select>
+        </div>
+        <div class="pagination-controls">
+          <button id="prev-page" class="btn btn-sm btn-ghost" disabled>&larr; Trước</button>
+          <span id="page-info">Trang 1</span>
+          <button id="next-page" class="btn btn-sm btn-ghost">Sau &rarr;</button>
+        </div>
+      </div>
+
+      <!-- Users List -->
+      <div class="card slide-up">
+        <div class="card-header">
+          <h2 class="card-title">👥 Danh sách Users</h2>
+        </div>
+        <div id="users-list" class="admin-table-container">
+          <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script>
+    // Check admin access
+    if (!requireAuth()) return;
+
+    const user = getUser();
+    if (user.role_id !== 1 && user.Role?.name !== 'admin') {
+      alert('Bạn không có quyền truy cập trang này!');
+      window.location.href = '/dashboard.html';
+      return;
+    }
+
+    let currentPage = 1;
+    const pageSize = 20; // Load 20 users per page for better performance
+    let totalPages = 1;
+    let searchQuery = '';
+    let roleFilter = '';
+
+    loadUserProfile();
+    loadUsers();
+
+    async function loadUserProfile() {
+      try {
+        const res = await getUserProfile();
+        const user = res.data;
+        initUserUI(user);
+      } catch (err) {
+        console.error('Failed to load user profile:', err);
+      }
+    }
+
+    function initUserUI(user) {
+      document.getElementById('sidebar-name').textContent = user.full_name;
+      document.getElementById('sidebar-role').textContent = user.Role?.name || 'Admin';
+
+      if (user.avatar) {
+        document.getElementById('sidebar-avatar').innerHTML = `<img src="${user.avatar}" alt="Avatar">`;
+      } else {
+        document.getElementById('sidebar-avatar').textContent = user.full_name.charAt(0).toUpperCase();
+      }
+    }
+
+    async function loadUsers() {
+      try {
+        // Show loading state
+        document.getElementById('users-list').innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Đang tải...</p></div>';
+
+        const params = new URLSearchParams({
+          page: currentPage,
+          limit: pageSize,
+          search: searchQuery,
+          role: roleFilter
+        });
+
+        const response = await fetch(`/api/admin/users?${params}`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+
+        if (!response.ok) {
+          throw new Error('Không thể tải danh sách users');
+        }
+
+        const res = await response.json();
+        const users = res.data.users || [];
+        const pagination = res.data.pagination || {};
+
+        totalPages = pagination.totalPages || 1;
+        renderUsersTable(users);
+        updatePaginationControls();
+
+      } catch (err) {
+        console.error('Failed to load users:', err);
+        document.getElementById('users-list').innerHTML = '<p class="error-message">Không thể tải danh sách users</p>';
+      }
+    }
+
+    function renderUsersTable(users) {
+      if (users.length === 0) {
+        document.getElementById('users-list').innerHTML = '<p>Chưa có user nào</p>';
+        return;
+      }
+
+      const tableHtml = `
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Avatar</th>
+              <th>Họ tên</th>
+              <th>Email</th>
+              <th>Vai trò</th>
+              <th>Điểm</th>
+              <th>Level</th>
+              <th>Ngày tạo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map(user => `
+              <tr>
+                <td>
+                  <div class="user-avatar-cell">
+                    ${user.avatar ? `<img src="${user.avatar}" alt="${user.full_name}">` : user.full_name.charAt(0).toUpperCase()}
+                  </div>
+                </td>
+                <td>${user.full_name}</td>
+                <td>${user.email}</td>
+                <td>
+                  <span class="role-badge ${user.role_id === 1 ? 'admin' : 'user'}">
+                    ${user.Role?.name || (user.role_id === 1 ? 'admin' : 'user')}
+                  </span>
+                </td>
+                <td>${user.total_points}</td>
+                <td>${user.level}</td>
+                <td>${new Date(user.created_at).toLocaleDateString('vi-VN')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      document.getElementById('users-list').innerHTML = tableHtml;
+    }
+
+    function updatePaginationControls() {
+      const prevBtn = document.getElementById('prev-page');
+      const nextBtn = document.getElementById('next-page');
+      const pageInfo = document.getElementById('page-info');
+
+      prevBtn.disabled = currentPage <= 1;
+      nextBtn.disabled = currentPage >= totalPages;
+      pageInfo.textContent = `Trang ${currentPage}/${totalPages}`;
+    }
+
+    function setupEventListeners() {
+      // Search input
+      document.getElementById('search-input').addEventListener('input', debounce(function(e) {
+        searchQuery = e.target.value.trim();
+        currentPage = 1;
+        loadUsers();
+      }, 300));
+
+      // Role filter
+      document.getElementById('role-filter').addEventListener('change', function(e) {
+        roleFilter = e.target.value;
+        currentPage = 1;
+        loadUsers();
+      });
+
+      // Pagination
+      document.getElementById('prev-page').addEventListener('click', function() {
+        if (currentPage > 1) {
+          currentPage--;
+          loadUsers();
+        }
+      });
+
+      document.getElementById('next-page').addEventListener('click', function() {
+        if (currentPage < totalPages) {
+          currentPage++;
+          loadUsers();
+        }
+      });
+    }
+
+    // Debounce function for search
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+
+    // Initialize event listeners
+    setupEventListeners();
+  </script>
+</body>
+</html>

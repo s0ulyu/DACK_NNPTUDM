@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Profile - Quản lý thông tin cá nhân">
+  <title>Profile | Gamification</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🎮</span>
+        <h2>Gamification</h2>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="/rewards.html" class="nav-item">
+          <span class="nav-icon">🎁</span> Phần thưởng
+        </a>
+        <a href="/leaderboard.html" class="nav-item">
+          <span class="nav-icon">🏆</span> Xếp hạng
+        </a>
+        <a href="/notifications.html" class="nav-item">
+          <span class="nav-icon">🔔</span> Thông báo
+          <span class="nav-badge" id="notification-badge" style="display:none">0</span>
+        </a>
+        <a href="/profile.html" class="nav-item active">
+          <span class="nav-icon">👤</span> Profile
+        </a>
+
+        <!-- Admin Menu Items -->
+        <div id="admin-menu" class="admin-menu" style="display:none;">
+          <div class="admin-menu-header">
+            <span class="admin-icon">⚡</span> Admin Panel
+          </div>
+          <a href="/admin-dashboard.html" class="nav-item admin-item">
+            <span class="nav-icon">📈</span> Admin Dashboard
+          </a>
+          <a href="/admin-rewards.html" class="nav-item admin-item">
+            <span class="nav-icon">🎁</span> Quản lý Rewards
+          </a>
+          <a href="/admin-users.html" class="nav-item admin-item">
+            <span class="nav-icon">👥</span> Quản lý Users
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="sidebar-avatar">?</div>
+          <div class="user-details">
+            <div class="name" id="sidebar-name">Loading...</div>
+            <div class="role" id="sidebar-role">-</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">
+          <span>🚪</span> Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Profile</h1>
+        <p>Quản lý thông tin cá nhân</p>
+      </header>
+
+      <div class="profile-container">
+        <!-- Profile Card -->
+        <div class="profile-card">
+          <div class="profile-avatar-section">
+            <div class="profile-avatar" id="profile-avatar">
+              <img id="avatar-img" src="" alt="Avatar" style="display:none;">
+              <span id="avatar-placeholder">👤</span>
+            </div>
+            <div class="avatar-upload">
+              <input type="file" id="avatar-input" accept="image/*" style="display:none;">
+              <button class="btn btn-secondary" onclick="document.getElementById('avatar-input').click()">
+                <span>📷</span> Đổi avatar
+              </button>
+            </div>
+          </div>
+
+          <div class="profile-info">
+            <div class="info-item">
+              <label>Họ tên:</label>
+              <span id="profile-name">-</span>
+            </div>
+            <div class="info-item">
+              <label>Email:</label>
+              <span id="profile-email">-</span>
+            </div>
+            <div class="info-item">
+              <label>Vai trò:</label>
+              <span id="profile-role">-</span>
+            </div>
+            <div class="info-item">
+              <label>Tổng điểm:</label>
+              <span id="profile-points">-</span>
+            </div>
+            <div class="info-item">
+              <label>Level:</label>
+              <span id="profile-level">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit Profile Form -->
+        <div class="profile-edit-card">
+          <h3>Chỉnh sửa thông tin</h3>
+          <form id="profile-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-fullname">Họ tên</label>
+                <input type="text" id="edit-fullname" required autocomplete="name">
+              </div>
+              <div class="form-group">
+                <label for="edit-email">Email</label>
+                <input type="email" id="edit-email" required autocomplete="email">
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="save-btn">
+                <span id="save-text">Lưu thay đổi</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Loading & Error -->
+      <div id="loading" class="loading-spinner" style="display:none;">
+        <div class="spinner"></div>
+        <p>Đang tải...</p>
+      </div>
+
+      <div id="error-message" class="error-message" style="display:none;"></div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script>
+    // Check authentication
+    if (!requireAuth()) return;
+
+    let currentUser = null;
+
+    // Load profile data
+    async function loadProfile() {
+      try {
+        showLoading(true);
+        const res = await getUserProfile();
+        currentUser = res.data;
+        displayProfile(currentUser);
+
+        // Show/hide admin menu
+        const adminMenu = document.getElementById('admin-menu');
+        if (currentUser.role_id === 1 || currentUser.Role?.name === 'admin') {
+          adminMenu.style.display = 'block';
+        } else {
+          adminMenu.style.display = 'none';
+        }
+
+        hideError();
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    // Display profile data
+    function displayProfile(user) {
+      // Sidebar
+      document.getElementById('sidebar-name').textContent = user.full_name;
+      document.getElementById('sidebar-role').textContent = user.Role?.name || 'User';
+
+      if (user.avatar) {
+        document.getElementById('sidebar-avatar').innerHTML = `<img src="${user.avatar}" alt="Avatar">`;
+      } else {
+        document.getElementById('sidebar-avatar').textContent = user.full_name.charAt(0).toUpperCase();
+      }
+
+      // Profile card
+      document.getElementById('profile-name').textContent = user.full_name;
+      document.getElementById('profile-email').textContent = user.email;
+      document.getElementById('profile-role').textContent = user.Role?.name || 'User';
+      document.getElementById('profile-points').textContent = user.total_points;
+      document.getElementById('profile-level').textContent = user.level;
+
+      if (user.avatar) {
+        const img = document.getElementById('avatar-img');
+        img.src = user.avatar;
+        img.style.display = 'block';
+        document.getElementById('avatar-placeholder').style.display = 'none';
+      } else {
+        document.getElementById('avatar-placeholder').textContent = user.full_name.charAt(0).toUpperCase();
+        document.getElementById('avatar-placeholder').style.display = 'block';
+        document.getElementById('avatar-img').style.display = 'none';
+      }
+
+      // Edit form
+      document.getElementById('edit-fullname').value = user.full_name;
+      document.getElementById('edit-email').value = user.email;
+    }
+
+    // Handle avatar upload
+    document.getElementById('avatar-input').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        showError('Vui lòng chọn file ảnh');
+        return;
+      }
+
+      // Validate file size (2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        showError('File ảnh không được vượt quá 2MB');
+        return;
+      }
+
+      try {
+        showLoading(true);
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        const res = await uploadUserAvatar(formData);
+        currentUser = res.data;
+        displayProfile(currentUser);
+        showSuccess('Avatar đã được cập nhật!');
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        showLoading(false);
+      }
+    });
+
+    // Handle profile update
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const fullName = document.getElementById('edit-fullname').value.trim();
+      const email = document.getElementById('edit-email').value.trim();
+
+      if (!fullName || !email) {
+        showError('Vui lòng nhập đầy đủ thông tin');
+        return;
+      }
+
+      try {
+        showLoading(true);
+        const res = await updateUserProfile({ full_name: fullName, email });
+        currentUser = res.data;
+        displayProfile(currentUser);
+        showSuccess('Thông tin đã được cập nhật!');
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        showLoading(false);
+      }
+    });
+
+    // Utility functions
+    function showLoading(show) {
+      document.getElementById('loading').style.display = show ? 'block' : 'none';
+    }
+
+    function showError(message) {
+      const errorEl = document.getElementById('error-message');
+      errorEl.textContent = message;
+      errorEl.style.display = 'block';
+      errorEl.className = 'error-message';
+    }
+
+    function showSuccess(message) {
+      const errorEl = document.getElementById('error-message');
+      errorEl.textContent = message;
+      errorEl.style.display = 'block';
+      errorEl.className = 'success-message';
+      setTimeout(() => {
+        errorEl.style.display = 'none';
+      }, 3000);
+    }
+
+    function hideError() {
+      document.getElementById('error-message').style.display = 'none';
+    }
+
+    // Initialize
+    loadProfile();
+  </script>
+</body>
+</html>

@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Admin Rewards Management - Quản lý phần thưởng">
+  <title>Quản lý Rewards | Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🎮</span>
+        <h2>Gamification</h2>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="/rewards.html" class="nav-item">
+          <span class="nav-icon">🎁</span> Phần thưởng
+        </a>
+        <a href="/leaderboard.html" class="nav-item">
+          <span class="nav-icon">🏆</span> Xếp hạng
+        </a>
+        <a href="/notifications.html" class="nav-item">
+          <span class="nav-icon">🔔</span> Thông báo
+          <span class="nav-badge" id="notification-badge" style="display:none">0</span>
+        </a>
+        <a href="/profile.html" class="nav-item">
+          <span class="nav-icon">👤</span> Profile
+        </a>
+
+        <!-- Admin Menu Items -->
+        <div class="admin-menu">
+          <div class="admin-menu-header">
+            <span class="admin-icon">⚡</span> Admin Panel
+          </div>
+          <a href="/admin-dashboard.html" class="nav-item admin-item">
+            <span class="nav-icon">📈</span> Admin Dashboard
+          </a>
+          <a href="/admin-rewards.html" class="nav-item admin-item active">
+            <span class="nav-icon">🎁</span> Quản lý Rewards
+          </a>
+          <a href="/admin-users.html" class="nav-item admin-item">
+            <span class="nav-icon">👥</span> Quản lý Users
+          </a>
+          <a href="/admin-categories.html" class="nav-item admin-item">
+            <span class="nav-icon">📂</span> Quản lý Categories
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="sidebar-avatar">?</div>
+          <div class="user-details">
+            <div class="name" id="sidebar-name">Loading...</div>
+            <div class="role" id="sidebar-role">-</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">
+          <span>🚪</span> Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Quản lý Rewards</h1>
+        <p>Tạo, chỉnh sửa và xóa phần thưởng</p>
+      </header>
+
+      <!-- Action Bar -->
+      <div class="action-bar">
+        <div class="filters">
+          <input type="text" id="search-input" placeholder="Tìm kiếm reward..." class="search-input">
+          <select id="sort-select" class="filter-select">
+            <option value="name">Sắp xếp theo tên</option>
+            <option value="points">Sắp xếp theo điểm</option>
+            <option value="stock">Sắp xếp theo số lượng</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="openCreateModal()">
+          <span>➕</span> Tạo Reward mới
+        </button>
+      </div>
+
+      <!-- Rewards List -->
+      <div class="card slide-up">
+        <div class="card-header">
+          <h2 class="card-title">🎁 Danh sách Rewards</h2>
+        </div>
+        <div id="rewards-list" class="admin-table-container">
+          <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Create/Edit Modal -->
+  <div id="reward-modal" class="modal-overlay">
+    <div class="modal">
+      <h3 id="modal-title">Tạo Reward mới</h3>
+      <form id="reward-form">
+        <div class="form-group">
+          <label for="reward-name">Tên reward</label>
+          <input type="text" id="reward-name" required>
+        </div>
+        <div class="form-group">
+          <label for="reward-description">Mô tả</label>
+          <textarea id="reward-description" rows="3"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="reward-points">Điểm yêu cầu</label>
+            <input type="number" id="reward-points" min="1" required>
+          </div>
+          <div class="form-group">
+            <label for="reward-stock">Số lượng</label>
+            <input type="number" id="reward-stock" min="0" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="reward-image">Hình ảnh</label>
+          <input type="file" id="reward-image" accept="image/*">
+          <small class="form-hint">Để trống nếu không muốn thay đổi</small>
+        </div>
+      </form>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">Hủy</button>
+        <button type="button" class="btn btn-primary" onclick="saveReward()">
+          <span id="save-text">Lưu</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script>
+    // Check admin access
+    if (!requireAuth()) return;
+
+    const user = getUser();
+    if (user.role_id !== 1 && user.Role?.name !== 'admin') {
+      alert('Bạn không có quyền truy cập trang này!');
+      window.location.href = '/dashboard.html';
+      return;
+    }
+
+    let currentRewardId = null;
+
+    let currentPage = 1;
+    const pageSize = 20; // Load 20 rewards per page
+    let totalPages = 1;
+    let searchQuery = '';
+    let sortBy = 'name';
+
+    loadUserProfile();
+    loadRewards();
+
+    async function loadUserProfile() {
+      try {
+        const res = await getUserProfile();
+        const user = res.data;
+        initUserUI(user);
+      } catch (err) {
+        console.error('Failed to load user profile:', err);
+      }
+    }
+
+    function initUserUI(user) {
+      document.getElementById('sidebar-name').textContent = user.full_name;
+      document.getElementById('sidebar-role').textContent = user.Role?.name || 'Admin';
+
+      if (user.avatar) {
+        document.getElementById('sidebar-avatar').innerHTML = `<img src="${user.avatar}" alt="Avatar">`;
+      } else {
+        document.getElementById('sidebar-avatar').textContent = user.full_name.charAt(0).toUpperCase();
+      }
+    }
+
+    async function loadRewards() {
+      try {
+        // Show loading state
+        document.getElementById('rewards-list').innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Đang tải...</p></div>';
+
+        const params = new URLSearchParams({
+          page: currentPage,
+          limit: pageSize,
+          search: searchQuery,
+          sort: sortBy
+        });
+
+        const res = await API.get(`/rewards?${params}`);
+        const rewards = res.data.rewards || [];
+        const pagination = res.data.pagination || {};
+
+        totalPages = pagination.totalPages || 1;
+        renderRewardsTable(rewards);
+        updatePaginationControls();
+
+      } catch (err) {
+        console.error('Failed to load rewards:', err);
+        document.getElementById('rewards-list').innerHTML = '<p class="error-message">Không thể tải danh sách rewards</p>';
+      }
+    }
+
+    function renderRewardsTable(rewards) {
+      if (rewards.length === 0) {
+        document.getElementById('rewards-list').innerHTML = '<p>Chưa có reward nào</p>';
+        return;
+      }
+
+      const tableHtml = `
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Hình ảnh</th>
+              <th>Tên</th>
+              <th>Mô tả</th>
+              <th>Điểm</th>
+              <th>Số lượng</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rewards.map(reward => `
+              <tr>
+                <td>
+                  <div class="reward-image-cell">
+                    ${reward.image_url ? `<img src="${reward.image_url}" alt="${reward.name}">` : '🎁'}
+                  </div>
+                </td>
+                <td>${reward.name}</td>
+                <td>${reward.description || '-'}</td>
+                <td>${reward.points_required}</td>
+                <td>${reward.stock}</td>
+                <td>
+                  <button class="btn btn-sm btn-accent" onclick="editReward(${reward.id})">Sửa</button>
+                  <button class="btn btn-sm btn-ghost" onclick="deleteReward(${reward.id})">Xóa</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      document.getElementById('rewards-list').innerHTML = tableHtml;
+    }
+
+    function openCreateModal() {
+      currentRewardId = null;
+      document.getElementById('modal-title').textContent = 'Tạo Reward mới';
+      document.getElementById('reward-form').reset();
+      document.getElementById('reward-modal').classList.add('active');
+    }
+
+    function editReward(id) {
+      // This would need an API to get single reward details
+      alert('Tính năng chỉnh sửa đang được phát triển!');
+    }
+
+    async function deleteReward(id) {
+      if (!confirm('Bạn có chắc muốn xóa reward này?')) return;
+
+      try {
+        await fetch(`/api/rewards/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        loadRewards(); // Reload list
+        alert('Xóa reward thành công!');
+      } catch (err) {
+        alert('Lỗi khi xóa reward: ' + err.message);
+      }
+    }
+
+    async function saveReward() {
+      const formData = new FormData();
+      formData.append('name', document.getElementById('reward-name').value);
+      formData.append('description', document.getElementById('reward-description').value);
+      formData.append('points_required', document.getElementById('reward-points').value);
+      formData.append('stock', document.getElementById('reward-stock').value);
+
+      const imageFile = document.getElementById('reward-image').files[0];
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
+
+      try {
+        document.getElementById('save-text').textContent = 'Đang lưu...';
+
+        const response = await fetch('/api/rewards', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${getToken()}` },
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error('Lỗi khi lưu reward');
+        }
+
+        closeModal();
+        loadRewards();
+        alert('Tạo reward thành công!');
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      } finally {
+        document.getElementById('save-text').textContent = 'Lưu';
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('reward-modal').classList.remove('active');
+    }
+
+    function updatePaginationControls() {
+      const prevBtn = document.getElementById('prev-page');
+      const nextBtn = document.getElementById('next-page');
+      const pageInfo = document.getElementById('page-info');
+
+      if (prevBtn && nextBtn && pageInfo) {
+        prevBtn.disabled = currentPage <= 1;
+        nextBtn.disabled = currentPage >= totalPages;
+        pageInfo.textContent = `Trang ${currentPage}/${totalPages}`;
+      }
+    }
+
+    function setupEventListeners() {
+      // Search input
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.addEventListener('input', debounce(function(e) {
+          searchQuery = e.target.value.trim();
+          currentPage = 1;
+          loadRewards();
+        }, 300));
+      }
+
+      // Sort select
+      const sortSelect = document.getElementById('sort-select');
+      if (sortSelect) {
+        sortSelect.addEventListener('change', function(e) {
+          sortBy = e.target.value;
+          currentPage = 1;
+          loadRewards();
+        });
+      }
+
+      // Pagination
+      const prevBtn = document.getElementById('prev-page');
+      const nextBtn = document.getElementById('next-page');
+
+      if (prevBtn) {
+        prevBtn.addEventListener('click', function() {
+          if (currentPage > 1) {
+            currentPage--;
+            loadRewards();
+          }
+        });
+      }
+
+      if (nextBtn) {
+        nextBtn.addEventListener('click', function() {
+          if (currentPage < totalPages) {
+            currentPage++;
+            loadRewards();
+          }
+        });
+      }
+    }
+
+    // Debounce function for search
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+
+    // Initialize event listeners
+    setupEventListeners();
+  </script>
+</body>
+</html>

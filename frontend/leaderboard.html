@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Bảng xếp hạng - Top 10 người chơi">
+  <title>Xếp hạng | Gamification</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🎮</span>
+        <h2>Gamification</h2>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="/rewards.html" class="nav-item">
+          <span class="nav-icon">🎁</span> Phần thưởng
+        </a>
+        <a href="/leaderboard.html" class="nav-item active">
+          <span class="nav-icon">🏆</span> Xếp hạng
+        </a>
+        <a href="/notifications.html" class="nav-item">
+          <span class="nav-icon">🔔</span> Thông báo
+          <span class="nav-badge" id="notification-badge" style="display:none">0</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <div class="user-details">
+            <div class="name" id="user-name">Loading...</div>
+            <div class="role" id="user-role">-</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">
+          <span>🚪</span> Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>🏆 Bảng xếp hạng</h1>
+        <p>Top 10 người chơi xuất sắc nhất</p>
+      </div>
+
+      <!-- My Rank -->
+      <div class="my-rank-card slide-up" id="my-rank-section" style="display:none">
+        <div>
+          <div class="my-rank-number" id="my-rank-pos">#-</div>
+          <div class="my-rank-label">Vị trí của bạn</div>
+        </div>
+        <div>
+          <div style="font-size:24px; font-weight:700" id="my-rank-points">0</div>
+          <div class="my-rank-label">điểm</div>
+        </div>
+        <div>
+          <div class="level-badge" id="my-rank-level">Lv.1</div>
+        </div>
+      </div>
+
+      <!-- Leaderboard Table -->
+      <div class="card">
+        <table class="leaderboard-table" id="leaderboard-table">
+          <thead>
+            <tr>
+              <th style="width:60px">Hạng</th>
+              <th>Người chơi</th>
+              <th style="width:120px">Điểm</th>
+              <th style="width:120px">Level</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body">
+            <tr><td colspan="4"><div class="loading-spinner"><div class="spinner"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script>
+    if (!requireAuth()) { /* redirected */ }
+
+    const user = getUser();
+    initUserUI(user);
+    initSocket();
+    updateNotificationBadge();
+    loadLeaderboard();
+
+    function initUserUI(user) {
+      if (!user) return;
+      document.getElementById('user-name').textContent = user.full_name;
+      document.getElementById('user-role').textContent = user.role_id === 1 ? 'Admin' : 'User';
+      document.getElementById('user-avatar').textContent = user.full_name.charAt(0).toUpperCase();
+    }
+
+    async function loadLeaderboard() {
+      try {
+        // Load top 10
+        const topRes = await getLeaderboard();
+        renderLeaderboard(topRes.data);
+
+        // Load my rank
+        try {
+          const myRes = await getMyRank();
+          const myData = myRes.data;
+          const section = document.getElementById('my-rank-section');
+          section.style.display = 'flex';
+          const rankPos = myData.rank_position || myData.rank;
+          document.getElementById('my-rank-pos').textContent = rankPos ? `#${rankPos}` : '#-';
+          document.getElementById('my-rank-points').textContent = (myData.totalPoints ?? myData.total_points ?? 0).toLocaleString();
+          document.getElementById('my-rank-level').textContent = `Lv.${myData.level || 1}`;
+        } catch (e) {
+          // No rank yet
+        }
+
+      } catch (err) {
+        showToast('Lỗi', err.message, 'error');
+      }
+    }
+
+    function renderLeaderboard(entries) {
+      const tbody = document.getElementById('leaderboard-body');
+      const currentUser = getUser();
+
+      if (!entries || entries.length === 0) {
+        tbody.innerHTML = `
+          <tr><td colspan="4">
+            <div class="empty-state">
+              <div class="empty-icon">🏆</div>
+              <h3>Chưa có dữ liệu</h3>
+              <p>Bảng xếp hạng sẽ hiển thị khi có người chơi</p>
+            </div>
+          </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = entries.map((entry, idx) => {
+        const rank = entry.rank || entry.rank_position || (idx + 1);
+        const userId = entry.userId || entry.user_id;
+        const isMe = currentUser && userId === currentUser.id;
+        const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+        const name = entry.fullName || (entry.User ? entry.User.full_name : null) || entry.full_name || `User #${userId}`;
+        const initial = name.charAt(0).toUpperCase();
+        const points = entry.totalPoints ?? entry.total_points ?? 0;
+        const level = entry.level || 1;
+        const levelNames = { 1: 'Beginner', 2: 'Learner', 3: 'Achiever', 4: 'Expert', 5: 'Master' };
+
+        return `
+          <tr class="${isMe ? 'is-me' : ''}">
+            <td>
+              <span class="rank-number ${rankClass}">
+                ${medal || rank}
+              </span>
+            </td>
+            <td>
+              <div class="leaderboard-user">
+                <div class="avatar">${initial}</div>
+                <span class="name">${escapeHtml(name)} ${isMe ? '(Bạn)' : ''}</span>
+              </div>
+            </td>
+            <td>
+              <span class="leaderboard-points">${points.toLocaleString()}</span>
+            </td>
+            <td>
+              <span class="level-badge">Lv.${level} ${levelNames[level] || ''}</span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function logout() {
+      clearAuth();
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>

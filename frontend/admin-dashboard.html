@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Admin Dashboard - Tổng quan quản lý hệ thống">
+  <title>Admin Dashboard | Gamification</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🎮</span>
+        <h2>Gamification</h2>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="/rewards.html" class="nav-item">
+          <span class="nav-icon">🎁</span> Phần thưởng
+        </a>
+        <a href="/leaderboard.html" class="nav-item">
+          <span class="nav-icon">🏆</span> Xếp hạng
+        </a>
+        <a href="/notifications.html" class="nav-item">
+          <span class="nav-icon">🔔</span> Thông báo
+          <span class="nav-badge" id="notification-badge" style="display:none">0</span>
+        </a>
+        <a href="/profile.html" class="nav-item">
+          <span class="nav-icon">👤</span> Profile
+        </a>
+
+        <!-- Admin Menu Items -->
+        <div class="admin-menu">
+          <div class="admin-menu-header">
+            <span class="admin-icon">⚡</span> Admin Panel
+          </div>
+          <a href="/admin-dashboard.html" class="nav-item admin-item active">
+            <span class="nav-icon">📈</span> Admin Dashboard
+          </a>
+          <a href="/admin-rewards.html" class="nav-item admin-item">
+            <span class="nav-icon">🎁</span> Quản lý Phần Thưởng
+          </a>
+          <a href="/admin-users.html" class="nav-item admin-item">
+            <span class="nav-icon">👥</span> Quản lý Người Dùng
+          </a>          <a href="/admin-categories.html" class="nav-item admin-item">
+            <span class="nav-icon">📂</span> Quản lý Categories
+          </a>        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="sidebar-avatar">?</div>
+          <div class="user-details">
+            <div class="name" id="sidebar-name">Loading...</div>
+            <div class="role" id="sidebar-role">-</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">
+          <span>🚪</span> Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Admin Dashboard</h1>
+        <p>Tổng quan quản lý hệ thống gamification</p>
+      </header>
+
+      <!-- Admin Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-info">
+            <h3 id="stat-total-users">-</h3>
+            <p>Tổng số Users</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🎁</div>
+          <div class="stat-info">
+            <h3 id="stat-total-rewards">-</h3>
+            <p>Tổng Rewards</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">💰</div>
+          <div class="stat-info">
+            <h3 id="stat-total-points">-</h3>
+            <p>Tổng điểm hệ thống</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📊</div>
+          <div class="stat-info">
+            <h3 id="stat-active-users">-</h3>
+            <p>Users hoạt động</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="card slide-up">
+        <div class="card-header">
+          <h2 class="card-title">📋 Hoạt động gần đây</h2>
+        </div>
+        <div id="recent-activity" class="history-list">
+          <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card slide-up">
+        <div class="card-header">
+          <h2 class="card-title">⚡ Quick Actions</h2>
+        </div>
+        <div class="quick-actions">
+          <a href="/admin-rewards.html" class="btn btn-primary">
+            <span>🎁</span> Quản lý Rewards
+          </a>
+          <a href="/admin-users.html" class="btn btn-accent">
+            <span>👥</span> Quản lý Users
+          </a>
+          <a href="/admin-categories.html" class="btn btn-success">
+            <span>📂</span> Quản lý Categories
+          </a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script>
+    // Check admin access
+    if (!requireAuth()) return;
+
+    // Check if user is admin
+    const user = getUser();
+    if (user.role_id !== 1 && user.Role?.name !== 'admin') {
+      alert('Bạn không có quyền truy cập trang này!');
+      window.location.href = '/dashboard.html';
+      return;
+    }
+
+    loadUserProfile();
+    loadAdminStats();
+    loadRecentActivity();
+
+    async function loadUserProfile() {
+      try {
+        const res = await getUserProfile();
+        const user = res.data;
+        initUserUI(user);
+      } catch (err) {
+        console.error('Failed to load user profile:', err);
+      }
+    }
+
+    function initUserUI(user) {
+      document.getElementById('sidebar-name').textContent = user.full_name;
+      document.getElementById('sidebar-role').textContent = user.Role?.name || 'Admin';
+
+      if (user.avatar) {
+        document.getElementById('sidebar-avatar').innerHTML = `<img src="${user.avatar}" alt="Avatar">`;
+      } else {
+        document.getElementById('sidebar-avatar').textContent = user.full_name.charAt(0).toUpperCase();
+      }
+    }
+
+    async function loadAdminStats() {
+      try {
+        // Show loading state
+        document.querySelectorAll('.stat-card h3').forEach(el => {
+          el.textContent = '...';
+        });
+
+        // Single API call to get all stats (optimized for performance)
+        const response = await fetch('/api/admin/stats/combined', {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+
+        if (!response.ok) {
+          throw new Error('Không thể tải thống kê');
+        }
+
+        const data = await response.json();
+        const stats = data.data;
+
+        // Update stats with animation
+        animateNumber('stat-total-users', stats.totalUsers || 0);
+        animateNumber('stat-total-rewards', stats.totalRewards || 0);
+        animateNumber('stat-total-points', stats.totalPoints || 0);
+        animateNumber('stat-active-users', stats.activeUsers || 0);
+
+      } catch (err) {
+        console.error('Failed to load admin stats:', err);
+        // Show error state
+        document.querySelectorAll('.stat-card h3').forEach(el => {
+          el.textContent = 'Lỗi';
+        });
+      }
+    }
+
+    async function loadRecentActivity() {
+      try {
+        // This would need a new API endpoint for admin activity
+        // For now, show placeholder
+        const activityHtml = `
+          <div class="history-item">
+            <div class="history-action-icon">👤</div>
+            <div class="history-info">
+              <div class="history-action">Hệ thống khởi động</div>
+              <div class="history-time">Vừa xong</div>
+            </div>
+          </div>
+          <div class="history-item">
+            <div class="history-action-icon">🎁</div>
+            <div class="history-info">
+              <div class="history-action">Admin đăng nhập</div>
+              <div class="history-time">1 phút trước</div>
+            </div>
+          </div>
+        `;
+        document.getElementById('recent-activity').innerHTML = activityHtml;
+      } catch (err) {
+        document.getElementById('recent-activity').innerHTML = '<p>Không thể tải hoạt động gần đây</p>';
+      }
+    }
+
+    function generateReport() {
+      alert('Tính năng xuất báo cáo đang được phát triển!');
+    }
+
+    function animateNumber(elementId, targetValue) {
+      const element = document.getElementById(elementId);
+      const startValue = 0;
+      const duration = 1000; // 1 second
+      const startTime = performance.now();
+
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Easing function for smooth animation
+        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+        const currentValue = Math.floor(startValue + (targetValue - startValue) * easeOutQuart);
+
+        element.textContent = currentValue.toLocaleString();
+
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        } else {
+          element.textContent = targetValue.toLocaleString();
+        }
+      }
+
+      requestAnimationFrame(update);
+    }
+  </script>
+</body>
+</html>

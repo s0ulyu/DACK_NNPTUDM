@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Dashboard - Tổng quan điểm, level, xếp hạng">
+  <title>Dashboard | Gamification</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">🎮</span>
+        <h2>Gamification</h2>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html" class="nav-item active">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="/rewards.html" class="nav-item">
+          <span class="nav-icon">🎁</span> Phần thưởng
+        </a>
+        <a href="/leaderboard.html" class="nav-item">
+          <span class="nav-icon">🏆</span> Xếp hạng
+        </a>
+        <a href="/notifications.html" class="nav-item">
+          <span class="nav-icon">🔔</span> Thông báo
+          <span class="nav-badge" id="notification-badge" style="display:none">0</span>
+        </a>
+        <a href="/profile.html" class="nav-item">
+          <span class="nav-icon">👤</span> Profile
+        </a>
+
+        <!-- Admin Menu Items -->
+        <div id="admin-menu" class="admin-menu" style="display:none;">
+          <div class="admin-menu-header">
+            <span class="admin-icon">⚡</span> Admin Panel
+          </div>
+          <a href="/admin-dashboard.html" class="nav-item admin-item">
+            <span class="nav-icon">📈</span> Admin Dashboard
+          </a>
+          <a href="/admin-rewards.html" class="nav-item admin-item">
+            <span class="nav-icon">🎁</span> Quản lý Rewards
+          </a>
+          <a href="/admin-users.html" class="nav-item admin-item">
+            <span class="nav-icon">👥</span> Quản lý Users
+          </a>
+          <a href="/admin-categories.html" class="nav-item admin-item">
+            <span class="nav-icon">📂</span> Quản lý Categories
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <div class="user-details">
+            <div class="name" id="user-name">Loading...</div>
+            <div class="role" id="user-role">-</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">
+          <span>🚪</span> Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-header">
+        <h1>📊 Dashboard</h1>
+        <p>Tổng quan hoạt động của bạn</p>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid stagger" id="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-info">
+            <h3 id="stat-points">-</h3>
+            <p>Tổng điểm</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🎯</div>
+          <div class="stat-info">
+            <h3 id="stat-level">-</h3>
+            <p id="stat-level-name">Level</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🏅</div>
+          <div class="stat-info">
+            <h3 id="stat-rank">-</h3>
+            <p>Xếp hạng</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🔔</div>
+          <div class="stat-info">
+            <h3 id="stat-notifications">-</h3>
+            <p>Thông báo mới</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="card slide-up" style="margin-bottom: 24px;">
+        <div class="card-header">
+          <h2 class="card-title">📜 Lịch sử điểm gần đây</h2>
+        </div>
+        <div id="point-history" class="history-list">
+          <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script>
+    if (!requireAuth()) { /* redirected */ }
+
+    loadUserProfile();
+    loadDashboard();
+    initSocket();
+    updateNotificationBadge();
+
+    async function loadUserProfile() {
+      try {
+        const res = await getUserProfile();
+        const user = res.data;
+        initUserUI(user);
+
+        // Show/hide admin menu
+        const adminMenu = document.getElementById('admin-menu');
+        if (user.role_id === 1 || user.Role?.name === 'admin') {
+          adminMenu.style.display = 'block';
+        } else {
+          adminMenu.style.display = 'none';
+        }
+
+        // Update localStorage with latest data
+        const currentAuth = getUser();
+        saveAuth(getToken(), { ...currentAuth, ...user });
+      } catch (err) {
+        console.error('Failed to load user profile:', err);
+        // Fallback to localStorage
+        const user = getUser();
+        initUserUI(user);
+        document.getElementById('admin-menu').style.display = 'none';
+      }
+    }
+
+    function initUserUI(user) {
+      if (!user) return;
+      document.getElementById('user-name').textContent = user.full_name;
+      document.getElementById('user-role').textContent = user.Role?.name || (user.role_id === 1 ? 'Admin' : 'User');
+
+      if (user.avatar) {
+        document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}" alt="Avatar">`;
+      } else {
+        document.getElementById('user-avatar').textContent = user.full_name.charAt(0).toUpperCase();
+      }
+    }
+
+    async function loadDashboard() {
+      try {
+        // Load point summary
+        const summaryRes = await getPointSummary();
+        const summary = summaryRes.data;
+        document.getElementById('stat-points').textContent = (summary.totalPoints || summary.total_points || 0).toLocaleString();
+        document.getElementById('stat-level').textContent = `Lv.${summary.level || 1}`;
+        document.getElementById('stat-level-name').textContent = summary.levelName || summary.level_name || 'Beginner';
+
+        // Load rank
+        try {
+          const rankRes = await getMyRank();
+          document.getElementById('stat-rank').textContent = (rankRes.data.rank_position || rankRes.data.rank)
+            ? `#${rankRes.data.rank_position || rankRes.data.rank}`
+            : '-';
+        } catch (e) {
+          document.getElementById('stat-rank').textContent = '-';
+        }
+
+        // Load unread notifications count
+        const unreadRes = await getUnreadCount();
+        document.getElementById('stat-notifications').textContent = unreadRes.data.unreadCount || 0;
+
+        // Load recent point history
+        const historyRes = await getPointHistory(1, 5);
+        renderPointHistory(historyRes.data);
+
+      } catch (err) {
+        console.error('Dashboard load error:', err);
+        showToast('Lỗi', err.message, 'error');
+      }
+    }
+
+    function renderPointHistory(history) {
+      const container = document.getElementById('point-history');
+      if (!history || history.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📜</div>
+            <h3>Chưa có lịch sử</h3>
+            <p>Hoàn thành task hoặc đổi thưởng để bắt đầu!</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = history.map(item => {
+        const isPositive = item.points > 0;
+        const icon = isPositive ? '📈' : '📉';
+        const actionIcon = item.action === 'earn' ? 'earn' : 'redeem';
+        const timeAgo = formatDate(item.created_at);
+
+        return `
+          <div class="history-item fade-in">
+            <div class="history-info">
+              <div class="history-action-icon ${actionIcon}">${icon}</div>
+              <div>
+                <div style="font-weight:600; font-size:14px;">${item.note || item.action}</div>
+                <div style="font-size:12px; color:var(--text-muted);">${timeAgo}</div>
+              </div>
+            </div>
+            <span class="points-change ${isPositive ? 'positive' : 'negative'}">
+              ${isPositive ? '+' : ''}${item.points}
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      return d.toLocaleString('vi-VN', {
+        day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function logout() {
+      clearAuth();
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>
