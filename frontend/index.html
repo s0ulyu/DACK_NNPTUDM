@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Đăng nhập - Task & Habit Gamification System">
+  <title>Đăng nhập | Gamification</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body class="login-page">
+
+  <div class="login-container slide-up">
+    <div class="login-logo">
+      <span class="logo-icon">🎮</span>
+      <h1>Gamification</h1>
+      <p>Task & Habit Gamification System</p>
+    </div>
+
+    <div id="login-error" class="login-error"></div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="name@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">Mật khẩu</label>
+        <input type="password" id="password" placeholder="••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary" id="login-btn">
+        <span id="login-text">Đăng nhập</span>
+      </button>
+    </form>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    // Redirect if already logged in
+    if (isLoggedIn()) {
+      window.location.href = '/dashboard.html';
+    }
+
+    const form = document.getElementById('login-form');
+    const errorEl = document.getElementById('login-error');
+    const loginBtn = document.getElementById('login-btn');
+    const loginText = document.getElementById('login-text');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.classList.remove('visible');
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        showError('Vui lòng nhập email và mật khẩu');
+        return;
+      }
+
+      loginBtn.disabled = true;
+      loginText.textContent = 'Đang đăng nhập...';
+
+      try {
+        const res = await loginAPI(email, password);
+        saveAuth(res.data.token, res.data.user);
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        showError(err.message);
+        loginBtn.disabled = false;
+        loginText.textContent = 'Đăng nhập';
+      }
+    });
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.add('visible');
+    }
+  </script>
+</body>
+</html>
